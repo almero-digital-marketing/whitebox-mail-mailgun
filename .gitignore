@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit (credentials come from the host app's environment)
+.env
+.env.*
+!.env.example
+
+# Build / tooling noise
+dist/
+*.tgz
+*.log
+coverage/
+.DS_Store
