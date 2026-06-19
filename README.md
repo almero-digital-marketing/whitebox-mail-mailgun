@@ -1,6 +1,6 @@
 # whitebox-mail-mailgun
 
-[Mailgun](https://www.mailgun.com/) provider for [`whitebox-server-plugin-mail`](../../whitebox-server-plugin-mail). Lives in its own repo; the mail plugin stays provider-agnostic and composes this in like any other integration.
+[Mailgun](https://www.mailgun.com/) provider for `whitebox-server-plugin-mail`. Lives in its own repo; the mail plugin stays provider-agnostic and composes this in like any other integration.
 
 ```js
 import { mail } from 'whitebox-server-plugin-mail'
@@ -31,12 +31,32 @@ The neutral mail-provider contract the plugin consumes:
 | `ownsAddress(addr)` | matches the sending domain (used for inbound `to` resolution) |
 | `classifyError(err)` | HTTP 4xx / known rejection keywords ⇒ permanent (blocklist instead of retry) |
 
-## Webhooks
+## Webhook setup
 
-Point your Mailgun routes/webhooks at the plugin's endpoints (both signature-verified):
+Both endpoints are public but **HMAC-verified** by this provider — Mailgun signs every request with your webhook signing key, and the plugin rejects anything unsigned, stale (outside the replay window), or tampered.
 
-- inbound messages → `POST /mail/webhooks/inbox`
-- tracking events (delivered/opened/clicked/failed/complained/unsubscribed) → `POST /mail/webhooks/tracking`
+**1. Signing key.** Mailgun dashboard → **Settings → Webhook signing key**. Put it in `WB_MAILGUN_WEBHOOK_SIGNING_KEY`. The same key verifies both inbound and tracking.
+
+**2. Tracking events.** Mailgun → **Send → Webhooks** (for your sending domain). Point each of these at `https://YOUR_HOST/mail/webhooks/tracking`:
+
+| Mailgun event | canonical | effect in WhiteBox |
+|---|---|---|
+| Delivered | `delivered` | outbox status → delivered |
+| Opened | `opened` | → opened, recorded in awareness |
+| Clicked | `clicked` | → engaged, recorded in awareness |
+| Permanent Failure | `bounced` | hard bounce → **invalid** list |
+| Complained (spam) | `complained` | → **suppression** list |
+| Unsubscribed | `unsubscribed` | → **suppression** list |
+
+These POST `application/json` with Mailgun's `event-data` + `signature` envelope. Opens/clicks are only reported for mail sent with tracking on — the outbox worker sets `o:tracking` per send (default on).
+
+**3. Inbound mail / replies.** Mailgun → **Receiving → Create Route**:
+- Expression — e.g. `match_recipient(".*@YOUR_DOMAIN")`
+- Action — `forward("https://YOUR_HOST/mail/webhooks/inbox")`
+
+Routes POST `multipart/form-data` (attachments arrive as files); the same endpoint also accepts JSON, so it works regardless of Mailgun's format.
+
+Both webhook routes live under the mail plugin's mount (`/mail`), so the full URLs are `https://YOUR_HOST/mail/webhooks/tracking` and `…/mail/webhooks/inbox`.
 
 ## Credentials
 
