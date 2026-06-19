@@ -2,7 +2,7 @@ import crypto from 'crypto'
 import nodemailer from 'nodemailer'
 import mg from 'nodemailer-mailgun-transport'
 
-// Mailgun provider for whitebox-server-plugin-mail. Implements the neutral mail
+// Mailgun provider for whitebox-pro-server-plugin-mail. Implements the neutral mail
 // provider contract — the plugin owns the outbox/queue/suppressions/awareness
 // plumbing; everything Mailgun-specific (transport, HMAC webhook auth, payload
 // shapes) lives here. Compose it in config: mail({ provider: mailgun({ … }) }).

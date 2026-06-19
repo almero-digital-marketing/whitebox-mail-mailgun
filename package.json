@@ -1,11 +1,11 @@
 {
-  "name": "whitebox-mail-mailgun",
+  "name": "whitebox-pro-mail-mailgun",
   "version": "0.1.0",
-  "description": "Mailgun provider for whitebox-server-plugin-mail — send (nodemailer Mailgun transport), inbound + tracking webhook parsing, HMAC-SHA256 signature verification.",
+  "description": "Mailgun provider for whitebox-pro-server-plugin-mail — send (nodemailer Mailgun transport), inbound + tracking webhook parsing, HMAC-SHA256 signature verification.",
   "license": "UNLICENSED",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/almero-digital-marketing/whitebox-mail-mailgun.git"
+    "url": "git+https://github.com/almero-digital-marketing/whitebox-pro-mail-mailgun.git"
   },
   "type": "module",
   "main": "src/index.js",
@@ -16,7 +16,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "whitebox-server-plugin-mail": "^0.1.0"
+    "whitebox-pro-server-plugin-mail": "^0.1.0"
   },
   "dependencies": {
     "nodemailer": "^8.0.7",

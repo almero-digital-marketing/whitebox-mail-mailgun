@@ -1,10 +1,10 @@
-# whitebox-mail-mailgun
+# whitebox-pro-mail-mailgun
 
-[Mailgun](https://www.mailgun.com/) provider for `whitebox-server-plugin-mail`. Lives in its own repo; the mail plugin stays provider-agnostic and composes this in like any other integration.
+[Mailgun](https://www.mailgun.com/) provider for `whitebox-pro-server-plugin-mail`. Lives in its own repo; the mail plugin stays provider-agnostic and composes this in like any other integration.
 
 ```js
-import { mail } from 'whitebox-server-plugin-mail'
-import { mailgun } from 'whitebox-mail-mailgun'
+import { mail } from 'whitebox-pro-server-plugin-mail'
+import { mailgun } from 'whitebox-pro-mail-mailgun'
 
 mail({
   provider: mailgun({
