@@ -57,25 +57,75 @@ export function mailgun({ apiKey, domain, webhookSigningKey, replayWindowMs = DE
     return timingSafeHexEqual(expected, String(sig.signature))
   }
 
+  // The plugin resolves saved attachments to { filename, path }; the nodemailer
+  // transport reads them straight off disk.
+  const mapAttachments = (attachments = []) => attachments.map(a => ({ filename: a.filename, path: a.path }))
+
+  async function sendOne({ from, to, replyTo, subject, html, text, headers, attachments = [], track = false }) {
+    const info = await transport.sendMail({
+      from: from || `noreply@${domain}`,
+      to,
+      replyTo,
+      subject,
+      html,
+      text,
+      headers,
+      attachments: mapAttachments(attachments),
+      'o:tracking': track ? 'yes' : 'no',
+    })
+    // Mailgun wraps the id in angle brackets; strip so tracking webhooks match.
+    return { messageId: info?.messageId?.replace(/[<>]/g, '') || null }
+  }
+
   return {
     name: 'mailgun',
+    // Mailgun's recipient-variables batch accepts up to 1000 recipients per call.
+    maxBatchSize: 1000,
 
-    async send({ from, to, replyTo, subject, html, text, headers, attachments = [], track = false }) {
-      const info = await transport.sendMail({
-        from: from || `noreply@${domain}`,
-        to,
-        replyTo,
-        subject,
-        html,
-        text,
-        headers,
-        // The plugin resolves saved attachments to { filename, path }; the
-        // nodemailer transport reads them straight off disk.
-        attachments: attachments.map(a => ({ filename: a.filename, path: a.path })),
-        'o:tracking': track ? 'yes' : 'no',
-      })
-      // Mailgun wraps the id in angle brackets; strip so tracking webhooks match.
-      return { messageId: info?.messageId?.replace(/[<>]/g, '') || null }
+    send: (msg) => sendOne(msg),
+
+    // Mailgun has no batch endpoint that returns a message id per recipient.
+    // When every message in the chunk shares the same rendered body, send a
+    // single recipient-variables call (≤1000) — the ids come back null and the
+    // plugin backfills them from tracking webhooks by recipient. Otherwise
+    // (personalized, per-recipient-rendered bodies) dispatch the chunk as
+    // concurrent individual sends, which DO return a real id per recipient.
+    async sendBatch(messages) {
+      if (!messages.length) return []
+      const [first] = messages
+      const uniform = messages.length > 1 && messages.every(m =>
+        (m.subject || '') === (first.subject || '') &&
+        (m.html || '')    === (first.html || '') &&
+        (m.text || '')    === (first.text || ''))
+
+      if (uniform) {
+        // recipient-variables keeps each recipient's email private and carries
+        // any per-recipient data for %recipient.x% token substitution.
+        const recipientVariables = Object.fromEntries(messages.map(m => [m.to, m.data || {}]))
+        try {
+          await transport.sendMail({
+            from: first.from || `noreply@${domain}`,
+            to: messages.map(m => m.to).join(', '),
+            replyTo: first.replyTo,
+            subject: first.subject,
+            html: first.html,
+            text: first.text,
+            headers: first.headers,
+            attachments: mapAttachments(first.attachments),
+            'o:tracking': first.track ? 'yes' : 'no',
+            'recipient-variables': JSON.stringify(recipientVariables),
+          })
+          return messages.map(() => ({ messageId: null, error: null }))
+        } catch (err) {
+          const error = String(err?.message || err)
+          return messages.map(() => ({ messageId: null, error }))
+        }
+      }
+
+      const settled = await Promise.allSettled(messages.map(m => sendOne(m)))
+      return settled.map(s => s.status === 'fulfilled'
+        ? { messageId: s.value.messageId, error: null }
+        : { messageId: null, error: String(s.reason?.message || s.reason) })
     },
 
     // kind: 'inbound' (flat body fields) | 'tracking' (nested under signature)

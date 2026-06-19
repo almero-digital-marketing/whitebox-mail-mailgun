@@ -25,6 +25,7 @@ The neutral mail-provider contract the plugin consumes:
 | method | Mailgun specifics |
 |---|---|
 | `send(msg) → { messageId }` | nodemailer Mailgun transport; `o:tracking` header; `noreply@{domain}` default from; strips `<>` from the message id |
+| `sendBatch(messages)` + `maxBatchSize: 1000` | uniform body → one `recipient-variables` call (ids null, backfilled from webhooks by recipient); personalized → concurrent individual sends with real per-recipient ids |
 | `verifySignature(req, kind)` | HMAC-SHA256 over `timestamp+token`; inbound posts the fields flat, tracking nests them under `signature`; replay-window check |
 | `parseInbound(req)` | `sender`/`recipient`/`stripped-text`/`body-html` + multipart file attachments |
 | `parseTracking(req)` | `event-data` envelope → canonical event (`failed→bounced`, etc.); `severity`, recipient, error message |

@@ -57,6 +57,38 @@ describe('send', () => {
   })
 })
 
+describe('sendBatch', () => {
+  it('advertises maxBatchSize', () => {
+    expect(make().maxBatchSize).toBe(1000)
+  })
+
+  it('uniform bodies → one recipient-variables call; ids null (backfilled from webhooks)', async () => {
+    const p = make()
+    const out = await p.sendBatch([
+      { to: 'a@x.com', subject: 'Hi', html: '<p>x</p>', track: true, data: { name: 'A' } },
+      { to: 'b@x.com', subject: 'Hi', html: '<p>x</p>', track: true, data: { name: 'B' } },
+    ])
+    expect(sendMail).toHaveBeenCalledTimes(1)
+    const arg = sendMail.mock.calls[0][0]
+    expect(arg.to).toBe('a@x.com, b@x.com')
+    expect(JSON.parse(arg['recipient-variables'])).toEqual({ 'a@x.com': { name: 'A' }, 'b@x.com': { name: 'B' } })
+    expect(out).toEqual([{ messageId: null, error: null }, { messageId: null, error: null }])
+  })
+
+  it('personalized (differing) bodies → individual sends with real per-recipient ids', async () => {
+    const p = make()
+    const out = await p.sendBatch([
+      { to: 'a@x.com', subject: 'Hi A', html: '<p>A</p>' },
+      { to: 'b@x.com', subject: 'Hi B', html: '<p>B</p>' },
+    ])
+    expect(sendMail).toHaveBeenCalledTimes(2)
+    expect(out).toEqual([
+      { messageId: 'abc-123@mg.example.com', error: null },
+      { messageId: 'abc-123@mg.example.com', error: null },
+    ])
+  })
+})
+
 describe('verifySignature', () => {
   it('accepts a valid inbound (flat) signature', () => {
     const p = make()
